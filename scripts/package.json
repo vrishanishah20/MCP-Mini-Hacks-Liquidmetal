@@ -1,0 +1,13 @@
+{
+  "name": "chicago-data-scripts",
+  "version": "1.0.0",
+  "description": "Scripts for fetching and processing Chicago data",
+  "main": "fetch-chicago-data.js",
+  "scripts": {
+    "fetch": "node fetch-chicago-data.js",
+    "test": "echo \"No tests yet\""
+  },
+  "dependencies": {
+    "node-fetch": "^2.6.7"
+  }
+}
