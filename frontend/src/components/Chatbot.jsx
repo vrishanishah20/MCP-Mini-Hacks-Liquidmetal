@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import axios from 'axios';
+import { chatAPI } from '../services/api';
 import './Chatbot.css';
 
 const QUICK_REPLY_NEIGHBORHOODS = [
@@ -19,6 +19,7 @@ const Chatbot = ({ selectedNeighborhood, onNeighborhoodMention, onHousingResults
   ]);
   const [inputValue, setInputValue] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [sessionId, setSessionId] = useState(null);
   const messagesEndRef = useRef(null);
 
   const scrollToBottom = () => {
@@ -47,22 +48,23 @@ const Chatbot = ({ selectedNeighborhood, onNeighborhoodMention, onHousingResults
     setIsLoading(true);
 
     try {
-      const apiUrl = process.env.REACT_APP_API_URL || '';
-      console.log('Sending message to:', `${apiUrl}/api/chat`);
-      const response = await axios.post(`${apiUrl}/api/chat`, {
-        message: textToSend,
-        context: { neighborhood: selectedNeighborhood }
-      });
+      console.log('Sending message with sessionId:', sessionId);
+      const response = await chatAPI.sendMessage(textToSend, sessionId);
 
-      // Extract text response
-      const textResponse = response.data.response || response.data.answer || 'I received your message, but the response format was unexpected.';
-      
-      // Extract housing data from response
-      const housingData = response.data.data || response.data;
-      
+      // Store session ID from response
+      if (response.sessionId) {
+        setSessionId(response.sessionId);
+      }
+
+      // Extract text response - backend returns { message, sessionId, citations }
+      const textResponse = response.message || 'I received your message, but the response format was unexpected.';
+
+      // Extract housing data from response if present
+      const housingData = response.data || response;
+
       // Build assistant message
       let assistantContent = textResponse;
-      
+
       // If housing data exists, add summary to message
       if (housingData && housingData.housing && Array.isArray(housingData.housing)) {
         const count = housingData.housing.length;
@@ -83,15 +85,30 @@ const Chatbot = ({ selectedNeighborhood, onNeighborhoodMention, onHousingResults
       }
 
       // Check if a neighborhood was mentioned
-      if (response.data.neighborhood) {
-        onNeighborhoodMention(response.data.neighborhood);
+      if (response.neighborhood) {
+        onNeighborhoodMention(response.neighborhood);
       }
     } catch (error) {
-      console.error('Error sending message:', error);
-      const errorMessage = error.response?.data?.error || error.message || 'Network error';
+      console.error('Full error object:', error);
+      console.error('Error response:', error.response);
+      console.error('Error message:', error.message);
+      console.error('Error code:', error.code);
+
+      let errorMessage = 'Unknown error occurred';
+
+      if (error.code === 'ECONNABORTED') {
+        errorMessage = 'Request timeout - backend is taking too long (try again, first request can take 30s)';
+      } else if (error.code === 'ERR_NETWORK') {
+        errorMessage = 'Network error - check if backend URL is accessible and CORS is enabled';
+      } else if (error.response) {
+        errorMessage = error.response.data?.error || `Server error: ${error.response.status}`;
+      } else {
+        errorMessage = error.message || 'Network error';
+      }
+
       setMessages(prev => [...prev, {
         role: 'assistant',
-        content: `Sorry, I encountered an error: ${errorMessage}. Please try again.`
+        content: `Sorry, I encountered an error: ${errorMessage}. Please wait 30 seconds for the backend to warm up on the first request.`
       }]);
     } finally {
       setIsLoading(false);

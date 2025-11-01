@@ -229,7 +229,7 @@ const Map3D = ({ onNeighborhoodSelect, housingResults = [], selectedHousing, onH
   };
 
 
-  const mapboxAccessToken = process.env.REACT_APP_MAPBOX_TOKEN || 'pk.eyJ1IjoibWFwYm94IiwiYSI6ImNpejY4NXVycTA2emYycXBndHRqcmZ3N3gifQ.rJcFIG214AriISLbB6B5aw';
+  const mapboxAccessToken = import.meta.env.VITE_MAPBOX_TOKEN || 'pk.eyJ1IjoibWFwYm94IiwiYSI6ImNpejY4NXVycTA2emYycXBndHRqcmZ3N3gifQ.rJcFIG214AriISLbB6B5aw';
 
   if (!neighborhoodData) {
     return (

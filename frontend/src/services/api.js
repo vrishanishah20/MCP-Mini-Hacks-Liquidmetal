@@ -5,18 +5,23 @@
 import axios from 'axios';
 
 // Use empty string for relative URLs when using proxy, or full URL for production
-const API_BASE_URL = process.env.REACT_APP_API_URL || '';
+const API_BASE_URL = import.meta.env.VITE_API_URL || '';
 
 const api = axios.create({
   baseURL: API_BASE_URL,
   headers: {
     'Content-Type': 'application/json',
   },
+  timeout: 60000, // 60 second timeout for backend responses
 });
 
 export const chatAPI = {
-  sendMessage: async (message, context = {}) => {
-    const response = await api.post('/api/chat', { message, context });
+  sendMessage: async (message, sessionId = null) => {
+    const payload = { message };
+    if (sessionId) {
+      payload.sessionId = sessionId;
+    }
+    const response = await api.post('/api/chat', payload);
     return response.data;
   },
 };
