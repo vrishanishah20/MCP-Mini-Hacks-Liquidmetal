@@ -22,6 +22,16 @@ class ChicagoDataClient:
             'calls_311': os.getenv('CALLS_311_DATASET_ID')
         }
 
+        # V3 API endpoints (Socrata query API)
+        self.v3_endpoints = {
+            'housing': os.getenv('AFFORDABLE_HOUSING_API_URL',
+                                'https://data.cityofchicago.org/api/v3/views/s6ha-ppgi/query.json'),
+            'crime': os.getenv('CRIME_API_URL',
+                              'https://data.cityofchicago.org/api/v3/views/ijzp-q8t2/query.json'),
+            'calls_311': os.getenv('CALLS_311_API_URL',
+                                  'https://data.cityofchicago.org/api/v3/views/v6vf-nfxy/query.json')
+        }
+
     def fetch_data(self, dataset_type: str, filters: Optional[Dict] = None, limit: int = 1000) -> pd.DataFrame:
         """
         Fetch data from a specific dataset
@@ -34,6 +44,10 @@ class ChicagoDataClient:
         Returns:
             DataFrame containing the fetched data
         """
+        # Check if we have a V3 API endpoint for this dataset
+        if dataset_type in self.v3_endpoints:
+            return self._fetch_v3_data(dataset_type, filters, limit)
+
         dataset_id = self.datasets.get(dataset_type)
         if not dataset_id:
             raise ValueError(f"Unknown dataset type: {dataset_type}")
@@ -52,6 +66,50 @@ class ChicagoDataClient:
         response.raise_for_status()
 
         data = response.json()
+        return pd.DataFrame(data)
+
+    def _fetch_v3_data(self, dataset_type: str, filters: Optional[Dict] = None, limit: int = 1000) -> pd.DataFrame:
+        """
+        Fetch data using Socrata V3 API endpoint
+
+        Args:
+            dataset_type: Type of dataset
+            filters: Optional filters to apply
+            limit: Maximum number of records
+
+        Returns:
+            DataFrame containing the fetched data
+        """
+        url = self.v3_endpoints.get(dataset_type)
+        if not url:
+            raise ValueError(f"No V3 endpoint configured for: {dataset_type}")
+
+        headers = {}
+        if self.api_key:
+            headers['X-App-Token'] = self.api_key
+
+        # Socrata V3 API uses different parameter format
+        params = {
+            'limit': limit
+        }
+
+        if filters:
+            params.update(filters)
+
+        response = requests.get(url, headers=headers, params=params)
+        response.raise_for_status()
+
+        data = response.json()
+
+        # V3 API returns data in a different format, extract rows
+        if isinstance(data, dict) and 'data' in data:
+            rows = data['data']
+            # Extract column names from metadata if available
+            if 'columns' in data:
+                columns = [col['name'] for col in data['columns']]
+                return pd.DataFrame(rows, columns=columns)
+            return pd.DataFrame(rows)
+
         return pd.DataFrame(data)
 
     def get_housing_by_neighborhood(self, neighborhood: str) -> List[Dict]:
