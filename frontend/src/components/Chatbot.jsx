@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { chatAPI } from '../services/api';
+import { enrichResponse } from '../utils/responseAdapter';
 import './Chatbot.css';
 
 const QUICK_REPLY_NEIGHBORHOODS = [
